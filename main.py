@@ -24,7 +24,7 @@ print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 IRAN_TZ = pytz.timezone('Asia/Tehran')
 
-API_TOKEN = 'توکن خودتو بذار اینجا'
+API_TOKEN = '8081419581:AAFVWumPeFKRfonfo-L41hgQmtiWEc8srM4'
 
 logging.basicConfig(level=logging.INFO)
 
