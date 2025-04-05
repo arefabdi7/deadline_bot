@@ -6,6 +6,13 @@ from datetime import datetime
 
 BASE_DOWNLOAD_DIR = "/tmp"
 
+def extract_course_name(category_field):
+    # اگر رشته به شکل «کد - کد - نام درس» باشه، نام درس بخش آخره
+    if category_field and '-' in category_field:
+        parts = category_field.split('-')
+        return parts[-1].strip()
+    return category_field.strip() if category_field else "نامشخص"
+
 def save_ics_to_db(user_id):
     ics_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
     files = [f for f in os.listdir(ics_dir) if f.endswith(".ics")]
@@ -29,7 +36,8 @@ def save_ics_to_db(user_id):
                     uid = str(component.get("UID"))
                     summary = str(component.get("SUMMARY") or "بدون عنوان")
                     description = str(component.get("DESCRIPTION") or "بدون توضیحات")
-                    category = str(component.get("CATEGORIES") or "نامشخص")
+                    raw_category = str(component.get("CATEGORIES") or "")
+                    category = extract_course_name(raw_category)
                     dtend = component.get("DTEND")
                     end_time = dtend.dt.strftime('%Y-%m-%d %H:%M:%S') if dtend and isinstance(dtend.dt, datetime) else None
 
