@@ -6,3 +6,5 @@ python-dateutil==2.9.0.post0
 ics==0.7.2
 icalendar
 undetected-chromedriver>=3.5.5
+jdatetime
+pytz
