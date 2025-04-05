@@ -98,7 +98,7 @@ async def show_deadlines(message: Message):
     if not deadlines:
         await message.answer("📭 شما هیچ ددلاینی ثبت‌شده ندارید!")
         return
-    
+
     response = "📅 <b>لیست ددلاین‌های شما:</b>\n\n"
 
     for dl in deadlines:
