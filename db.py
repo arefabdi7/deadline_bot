@@ -28,14 +28,28 @@ class Database:
         self.cursor.execute("UPDATE users SET is_notif_active = %s WHERE user_id = %s", (int(status), user_id))
         self.conn.commit()
 
-    def get_deadlines(self, user_id):
-        self.cursor.execute("""
-            SELECT summary AS title, description, end_time AS date 
+def get_deadlines(self, chat_id):
+    self.cursor.execute("SELECT user_id FROM users WHERE chat_id = %s", (chat_id,))
+    user = self.cursor.fetchone()
+    
+    if not user:
+        return []
+    with self.connection.cursor() as fresh_cursor:
+        fresh_cursor.execute("""
+            SELECT 
+                uid,
+                summary AS title, 
+                description, 
+                end_time AS date,
+                category,
+                is_completed
             FROM calendar 
-            WHERE user_id = %s AND is_completed = 0 
+            WHERE user_id = %s AND is_completed = 0
             ORDER BY end_time ASC
-        """, (user_id,))
-        return self.cursor.fetchall()
+        """, (user[0],))
+        
+        fresh_cursor.fetchall()
+        return fresh_cursor.fetchall()
 
     def delete_expired_events(self):
         self.cursor.execute("DELETE FROM calendar WHERE end_time < NOW()")
