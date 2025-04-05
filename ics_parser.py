@@ -4,8 +4,10 @@ from db_config import get_db_config
 from icalendar import Calendar
 from datetime import datetime
 
+BASE_DOWNLOAD_DIR = "/tmp"
+
 def save_ics_to_db(user_id):
-    ics_dir = os.path.join("downloads", str(user_id))
+    ics_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
     files = [f for f in os.listdir(ics_dir) if f.endswith(".ics")]
     if not files:
         print("هیچ فایل ICS برای این کاربر پیدا نشد.")
@@ -26,15 +28,16 @@ def save_ics_to_db(user_id):
                     description = str(component.get("DESCRIPTION") or "بدون توضیحات")
                     category = str(component.get("CATEGORIES") or "نامشخص")
                     dtend = component.get("DTEND")
-                    
+
                     end_time = dtend.dt.strftime('%Y-%m-%d %H:%M:%S') if dtend and isinstance(dtend.dt, datetime) else None
-                    
+
                     try:
                         cursor.execute("""
                             INSERT INTO calendar (uid, user_id, summary, description, end_time, category, is_completed)
                             VALUES (%s, %s, %s, %s, %s, %s, %s)
                             ON DUPLICATE KEY UPDATE summary=%s, description=%s, end_time=%s, category=%s
-                        """, (uid, user_id, summary, description, end_time, category, 0, summary, description, end_time, category))
+                        """, (uid, user_id, summary, description, end_time, category, 0,
+                              summary, description, end_time, category))
                     except mysql.connector.Error as err:
                         print(f"❌ خطا در UID={uid}: {err}")
 
