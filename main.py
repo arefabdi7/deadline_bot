@@ -93,7 +93,6 @@ async def finish_registration(message: Message, state: FSMContext):
 @router.message(F.text == '📋 مشاهده ددلاین‌ها')
 async def show_deadlines(message: Message):
     chat_id = message.chat.id
-    db.clear_cache(chat_id)
     deadlines = db.get_deadlines(chat_id)
 
     if not deadlines:
