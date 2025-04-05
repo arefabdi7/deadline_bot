@@ -1,7 +1,6 @@
 import os
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,17 +15,23 @@ def download_calendar(username, password, user_id):
     else:
         print(f"📁 پوشه قبلاً وجود داشت: {user_download_dir}")
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--remote-debugging-port=9222")
-    chrome_options.add_argument(f"--user-data-dir=/tmp/{user_id}")  # حل مشکل current directory
+    options = uc.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument(f"--window-size=1920,1080")
+    prefs = {
+        "download.default_directory": user_download_dir,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True
+    }
+    options.add_experimental_option("prefs", prefs)
 
-    driver = webdriver.Chrome(options=chrome_options)
-    wait = WebDriverWait(driver, 5)
+    driver = uc.Chrome(options=options)
+    wait = WebDriverWait(driver, 10)
 
     try:
         print("🚀 ورود به سایت...")
@@ -46,8 +51,7 @@ def download_calendar(username, password, user_id):
         password_field.clear()
         password_field.send_keys(password)
 
-        login_button_xpath = ("//*[@id='fm1']/i[@class='btn btn-block btn-primary btn-submit waves-input-wrapper waves-effect "
-                              "waves-float waves-light']/input[@class='waves-button-input']")
+        login_button_xpath = ("//*[@id='fm1']//input[@type='submit']")
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
         login_button.click()
 
