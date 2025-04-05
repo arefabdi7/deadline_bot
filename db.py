@@ -29,6 +29,7 @@ class Database:
         self.conn.commit()
 
     def get_deadlines(self, user_id):
+        self.connection.commit()
         self.cursor.execute("""
             SELECT summary AS title, description, end_time AS date 
             FROM calendar 
