@@ -17,6 +17,7 @@ from scraper import download_calendar
 from ics_parser import save_ics_to_db
 import pytz  
 import os
+
 print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 IRAN_TZ = pytz.timezone('Asia/Tehran')
@@ -50,7 +51,6 @@ def get_main_menu():
     ])
 
 def clean_title(title):
-    """ حذف is due از انتهای عنوان """
     return re.sub(r'\s*is due\s*$', '', title, flags=re.IGNORECASE).strip()
 
 @router.message(F.text == "/start")
@@ -77,6 +77,7 @@ async def finish_registration(message: Message, state: FSMContext):
 
     db.add_user(chat_id, username, password)
     await message.answer("✅ ثبت‌نام با موفقیت انجام شد. در حال دریافت اطلاعات...")
+
     await download_and_parse_calendar(chat_id)
 
     await message.answer("🎉 آماده‌ایم! یکی از گزینه‌های زیر را انتخاب کن:", reply_markup=get_main_menu())
@@ -142,12 +143,20 @@ async def mark_done(callback: CallbackQuery):
     db.mark_completed(chat_id, uid)
     await callback.answer("✅ با موفقیت ثبت شد. دیگر یادآوری نخواهید گرفت.")
 
+# ✅ نسخه با لاگ‌گیری دقیق برای دیباگ
 async def download_and_parse_calendar(chat_id):
     user = db.get_user(chat_id)
     if not user:
+        print("❌ [download] کاربر یافت نشد:", chat_id)
         return
-    download_calendar(user['username'], user['password'], user['user_id'])
-    save_ics_to_db(user['user_id'])
+    try:
+        print(f"⬇ شروع دانلود تقویم برای کاربر {user['username']} (user_id={user['user_id']})")
+        download_calendar(user['username'], user['password'], user['user_id'])
+        print("📂 فایل تقویم با موفقیت دانلود شد.")
+        save_ics_to_db(user['user_id'])
+        print("✅ ذخیره ددلاین‌ها در دیتابیس با موفقیت انجام شد.")
+    except Exception as e:
+        print(f"❌ خطا در دانلود/ذخیره تقویم: {e}")
 
 async def delete_expired():
     db.delete_expired_events()
