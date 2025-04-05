@@ -1,6 +1,6 @@
 import logging
 import asyncio
-import re  
+import re
 from datetime import datetime, timedelta, timezone
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
@@ -15,15 +15,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import Database
 from scraper import download_calendar
 from ics_parser import save_ics_to_db
-import pytz  
+import pytz
 import os
 import requests
+import jdatetime
 
 print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 IRAN_TZ = pytz.timezone('Asia/Tehran')
 
-API_TOKEN = '8081419581:AAFVWumPeFKRfonfo-L41hgQmtiWEc8srM4'
+API_TOKEN = 'توکن خودتو بذار اینجا'
 
 logging.basicConfig(level=logging.INFO)
 
@@ -53,6 +54,11 @@ def get_main_menu():
 
 def clean_title(title):
     return re.sub(r'\s*is due\s*$', '', title, flags=re.IGNORECASE).strip()
+
+def to_persian_date(dt: datetime) -> str:
+    dt = dt.astimezone(IRAN_TZ)
+    jdt = jdatetime.datetime.fromgregorian(datetime=dt)
+    return jdt.strftime('%Y/%m/%d %H:%M')
 
 @router.message(F.text == "/start")
 async def cmd_start(message: Message, state: FSMContext):
@@ -98,15 +104,15 @@ async def show_deadlines(message: Message):
     for dl in deadlines:
         title = clean_title(dl.get('title', "بدون عنوان"))
         description = dl.get('description', "بدون توضیحات")
+        category = dl.get('category', "نامشخص")
         date = dl.get('date')
 
         if date and isinstance(date, datetime):
-            date = date.replace(tzinfo=timezone.utc)
-            date = date.astimezone(IRAN_TZ).strftime('%Y-%m-%d %H:%M')
+            date = to_persian_date(date)
         else:
             date = "زمان نامشخص"
 
-        response += f"🔹 <b>{title}</b>\n📆 <i>{date}</i>\n📝 {description}\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        response += f"🔹 <b>{title}</b>\n📘 <b>{category}</b>\n📆 <i>{date}</i>\n📝 {description}\n━━━━━━━━━━━━━━━━━━━━━━\n"
 
     await message.answer(response, parse_mode=ParseMode.HTML)
 
@@ -144,7 +150,6 @@ async def mark_done(callback: CallbackQuery):
     db.mark_completed(chat_id, uid)
     await callback.answer("✅ با موفقیت ثبت شد. دیگر یادآوری نخواهید گرفت.")
 
-# ✅ نسخه با لاگ‌گیری دقیق برای دیباگ
 async def download_and_parse_calendar(chat_id):
     user = db.get_user(chat_id)
     if not user:
@@ -177,8 +182,13 @@ async def send_notifications():
                     markup = InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="انجام دادم ✅", callback_data=f"done:{event['uid']}")]
                     ])
-                    end_time_str = event['end_time'].astimezone(IRAN_TZ).strftime('%Y-%m-%d %H:%M')
-                    await bot.send_message(chat_id, f"⏰ یادآوری: <b>{clean_title(event['summary'])}</b>\n📆 <i>{end_time_str}</i>\n📝 {event['description']}", parse_mode=ParseMode.HTML, reply_markup=markup)
+                    end_time_str = to_persian_date(event['end_time'])
+                    await bot.send_message(
+                        chat_id,
+                        f"⏰ یادآوری: <b>{clean_title(event['summary'])}</b>\n📘 <b>{event['category']}</b>\n📆 <i>{end_time_str}</i>\n📝 {event['description']}",
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=markup
+                    )
                     db.mark_as_notified(user['user_id'], event['uid'], delta)
 
 async def periodic_tasks():
@@ -188,11 +198,10 @@ async def periodic_tasks():
     await delete_expired()
 
 async def main():
-    # حذف Webhook قبل از شروع ربات
     url = f"https://api.telegram.org/bot{API_TOKEN}/deleteWebhook"
     response = requests.get(url)
     print(f"Webhook deleted: {response.json()}")
-    
+
     scheduler.add_job(periodic_tasks, 'interval', hours=1)
     scheduler.add_job(send_notifications, 'interval', minutes=15)
     scheduler.start()
