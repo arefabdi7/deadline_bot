@@ -9,9 +9,13 @@ from selenium.webdriver.support import expected_conditions as EC
 def download_calendar(username, password, user_id):
     base_download_dir = "/tmp"
     user_download_dir = os.path.join(base_download_dir, str(user_id))
+
     if not os.path.exists(user_download_dir):
         os.makedirs(user_download_dir)
-    
+        print(f"📁 ساخت پوشه: {user_download_dir}")
+    else:
+        print(f"📁 پوشه قبلاً وجود داشت: {user_download_dir}")
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
@@ -22,10 +26,10 @@ def download_calendar(username, password, user_id):
         "safebrowsing.enabled": True
     }
     chrome_options.add_experimental_option("prefs", prefs)
-    
+
     driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 5)
-    
+
     try:
         print("🚀 ورود به سایت...")
         driver.get("https://courses.aut.ac.ir/calendar/export.php")
@@ -60,12 +64,21 @@ def download_calendar(username, password, user_id):
         export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
         export_button.click()
 
-        print("⌛ منتظر دانلود فایل...")
-        time.sleep(5)
+        print("⌛ در انتظار دانلود فایل...")
 
-        downloaded_files = [f for f in os.listdir(user_download_dir) if f.endswith(".ics")]
+        # چک کردن دانلود تا ۱۵ ثانیه
+        timeout = 15
+        downloaded_files = []
+        for i in range(timeout):
+            all_files = os.listdir(user_download_dir)
+            print(f"⏳ تلاش {i + 1}/{timeout} - فایل‌های موجود: {all_files}")
+            downloaded_files = [f for f in all_files if f.endswith(".ics")]
+            if downloaded_files:
+                break
+            time.sleep(1)
+
         if not downloaded_files:
-            print("❌ هیچ فایل .ics پیدا نشد! شاید دانلود شکست خورده.")
+            print("❌ هیچ فایل .ics پیدا نشد! احتمالاً دانلود شکست خورده.")
         else:
             print("✅ فایل‌های دانلود شده:", downloaded_files)
 
