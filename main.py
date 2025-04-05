@@ -17,6 +17,7 @@ from scraper import download_calendar
 from ics_parser import save_ics_to_db
 import pytz  
 import os
+import requests
 
 print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
@@ -187,12 +188,16 @@ async def periodic_tasks():
     await delete_expired()
 
 async def main():
+    # حذف Webhook قبل از شروع ربات
+    url = f"https://api.telegram.org/bot{API_TOKEN}/deleteWebhook"
+    response = requests.get(url)
+    print(f"Webhook deleted: {response.json()}")
+    
     scheduler.add_job(periodic_tasks, 'interval', hours=1)
     scheduler.add_job(send_notifications, 'interval', minutes=15)
     scheduler.start()
-    await bot.delete_webhook(drop_pending_updates=True)
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
-    download_calendar("arefabdi", "Arefabdi1382", 1517579904)
     asyncio.run(main())
