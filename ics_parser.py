@@ -7,10 +7,11 @@ from datetime import datetime
 BASE_DOWNLOAD_DIR = "/tmp"
 
 def extract_course_name(category_field):
-    # اگر رشته به شکل «کد - کد - نام درس» باشه، نام درس بخش آخره
+    # گرفتن فقط آخرین بخش بعد از خط تیره
     if category_field and '-' in category_field:
         parts = category_field.split('-')
-        return parts[-1].strip()
+        name = parts[-1].strip()
+        return name if len(name) > 3 else category_field.strip()
     return category_field.strip() if category_field else "نامشخص"
 
 def save_ics_to_db(user_id):
@@ -36,8 +37,19 @@ def save_ics_to_db(user_id):
                     uid = str(component.get("UID"))
                     summary = str(component.get("SUMMARY") or "بدون عنوان")
                     description = str(component.get("DESCRIPTION") or "بدون توضیحات")
-                    raw_category = str(component.get("CATEGORIES") or "")
+                    
+                    # استخراج مقدار واقعی CATEGORIES
+                    raw_category_field = component.get("CATEGORIES")
+                    if raw_category_field:
+                        if isinstance(raw_category_field, list):
+                            raw_category = str(raw_category_field[0])
+                        else:
+                            raw_category = str(raw_category_field)
+                    else:
+                        raw_category = ""
+
                     category = extract_course_name(raw_category)
+
                     dtend = component.get("DTEND")
                     end_time = dtend.dt.strftime('%Y-%m-%d %H:%M:%S') if dtend and isinstance(dtend.dt, datetime) else None
 
