@@ -28,7 +28,7 @@ class Database:
         self.cursor.execute("UPDATE users SET is_notif_active = %s WHERE user_id = %s", (int(status), user_id))
         self.conn.commit()
 
-def get_deadlines(self, user_id):
+    def get_deadlines(self, user_id):
         self.cursor.execute("""
             SELECT summary AS title, description, end_time AS date 
             FROM calendar 
