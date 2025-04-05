@@ -18,14 +18,12 @@ def download_calendar(username, password, user_id):
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    prefs = {
-        "download.default_directory": user_download_dir,
-        "download.prompt_for_download": False,
-        "download.directory_upgrade": True,
-        "safebrowsing.enabled": True
-    }
-    chrome_options.add_experimental_option("prefs", prefs)
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.add_argument(f"--user-data-dir=/tmp/{user_id}")  # حل مشکل current directory
 
     driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 5)
