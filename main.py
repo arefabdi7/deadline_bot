@@ -60,6 +60,25 @@ def to_persian_date(dt: datetime) -> str:
     jdt = jdatetime.datetime.fromgregorian(datetime=dt)
     return jdt.strftime('%Y/%m/%d %H:%M')
 
+# بررسی وضعیت وبهوک و حذف آن در صورت فعال بودن
+async def check_and_delete_webhook():
+    url = f"https://api.telegram.org/bot{API_TOKEN}/getWebhookInfo"
+    response = requests.get(url).json()
+    
+    if response.get("result", {}).get("url"):
+        print("Webhook is active, deleting it.")
+        delete_webhook()
+
+# حذف وبهوک
+def delete_webhook():
+    url = f"https://api.telegram.org/bot{API_TOKEN}/deleteWebhook"
+    response = requests.get(url)
+    if response.json().get("ok"):
+        print("✅ Webhook deleted successfully.")
+    else:
+        print("❌ Failed to delete webhook.")
+
+# شروع دستور شروع
 @router.message(F.text == "/start")
 async def cmd_start(message: Message, state: FSMContext):
     chat_id = message.chat.id
@@ -198,14 +217,12 @@ async def periodic_tasks():
     await delete_expired()
 
 async def main():
-    url = f"https://api.telegram.org/bot{API_TOKEN}/deleteWebhook"
-    response = requests.get(url)
-    print(f"Webhook deleted: {response.json()}")
-
+    await check_and_delete_webhook()  # بررسی وضعیت وبهوک و حذف آن در صورت نیاز
     scheduler.add_job(periodic_tasks, 'interval', hours=1)
     scheduler.add_job(send_notifications, 'interval', minutes=15)
     scheduler.start()
 
+    # شروع Polling بعد از حذف وبهوک
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
