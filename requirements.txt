@@ -5,4 +5,4 @@ selenium==4.18.1
 python-dateutil==2.9.0.post0
 ics==0.7.2
 icalendar
-undetected-chromedriver
+undetected-chromedriver>=3.5.5
