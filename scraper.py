@@ -8,7 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def download_calendar(username, password, user_id):
     # تعیین دایرکتوری دانلود مخصوص هر کاربر
-    base_download_dir = os.path.abspath("downloads")
+    base_download_dir = "/tmp"
     user_download_dir = os.path.join(base_download_dir, str(user_id))
     if not os.path.exists(user_download_dir):
         os.makedirs(user_download_dir)
