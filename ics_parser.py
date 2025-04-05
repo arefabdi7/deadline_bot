@@ -10,15 +10,18 @@ def save_ics_to_db(user_id):
     ics_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
     files = [f for f in os.listdir(ics_dir) if f.endswith(".ics")]
     if not files:
-        print("هیچ فایل ICS برای این کاربر پیدا نشد.")
+        print("❌ هیچ فایل ICS برای این کاربر پیدا نشد.")
         return
 
+    print("📂 فایل‌های موجود برای پردازش:", files)
+    
     db_config = get_db_config()
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
 
     for file in files:
         full_path = os.path.join(ics_dir, file)
+        print(f"🔎 در حال پردازش فایل: {file}, حجم: {os.path.getsize(full_path)} بایت")
         with open(full_path, "rb") as f:
             gcal = Calendar.from_ical(f.read())
             for component in gcal.walk():
@@ -28,7 +31,6 @@ def save_ics_to_db(user_id):
                     description = str(component.get("DESCRIPTION") or "بدون توضیحات")
                     category = str(component.get("CATEGORIES") or "نامشخص")
                     dtend = component.get("DTEND")
-
                     end_time = dtend.dt.strftime('%Y-%m-%d %H:%M:%S') if dtend and isinstance(dtend.dt, datetime) else None
 
                     try:
@@ -38,11 +40,12 @@ def save_ics_to_db(user_id):
                             ON DUPLICATE KEY UPDATE summary=%s, description=%s, end_time=%s, category=%s
                         """, (uid, user_id, summary, description, end_time, category, 0,
                               summary, description, end_time, category))
+                        print(f"✅ رویداد با UID={uid} ذخیره شد.")
                     except mysql.connector.Error as err:
-                        print(f"❌ خطا در UID={uid}: {err}")
+                        print(f"❌ خطا در ذخیره UID={uid}: {err}")
 
+        print(f"🧹 حذف فایل {file}")
         os.remove(full_path)
-        print(f"🧹 فایل {file} با موفقیت حذف شد.")
 
     conn.commit()
     cursor.close()
