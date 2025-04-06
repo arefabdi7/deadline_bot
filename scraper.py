@@ -75,7 +75,8 @@ def download_calendar(username, password, user_id):
         timeout = 15
         downloaded_files = []
         for i in range(timeout):
-            all_files = os.listdir(user_download_dir)
+            # Ensure that even if os.listdir returns None, we use an empty list.
+            all_files = os.listdir(user_download_dir) or []
             print(f"⏳ تلاش {i + 1}/{timeout} - فایل‌های موجود: {all_files}", flush=True)
             downloaded_files = [f for f in all_files if f.endswith(".ics")]
             if downloaded_files:
