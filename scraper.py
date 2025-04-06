@@ -6,19 +6,21 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-def download_calendar(username, password, user_id):
-    # مسیر دایرکتوری دانلود کاربر
-    base_download_dir = os.path.abspath("/tmp")
-    user_download_dir = os.path.join(base_download_dir, str(user_id))
-    os.makedirs(user_download_dir, exist_ok=True)
+BASE_DOWNLOAD_DIR = "/tmp"
 
-    # تنظیمات مرورگر
+def download_calendar(username, password, user_id):
+    print(f"⬇ شروع دانلود تقویم برای کاربر {user_id} (user_id={user_id})")
+
+    user_download_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
+    if not os.path.exists(user_download_dir):
+        os.makedirs(user_download_dir)
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    
+
     prefs = {
         "download.default_directory": user_download_dir,
         "download.prompt_for_download": False,
@@ -27,12 +29,10 @@ def download_calendar(username, password, user_id):
     }
     chrome_options.add_experimental_option("prefs", prefs)
 
-    # ایجاد مرورگر
     driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 10)
 
     try:
-        print(f"⬇ شروع دانلود تقویم برای کاربر {user_id} (user_id={user_id})")
         driver.get("https://courses.aut.ac.ir/calendar/export.php")
 
         login_provider_xpath = ("//*[@id='region-main']/div[@class='login-wrapper']/div[@class='login-container']/"
@@ -41,46 +41,44 @@ def download_calendar(username, password, user_id):
         login_provider_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_provider_xpath)))
         login_provider_button.click()
 
-        # ورود با نام کاربری و رمز
         username_field = wait.until(EC.presence_of_element_located((By.ID, "username")))
+        username_field.clear()
         username_field.send_keys(username)
+
         password_field = wait.until(EC.presence_of_element_located((By.ID, "password")))
+        password_field.clear()
         password_field.send_keys(password)
 
-        login_button_xpath = ("//*[@id='fm1']/i[@class='btn btn-block btn-primary btn-submit waves-input-wrapper waves-effect "
-                              "waves-float waves-light']/input[@class='waves-button-input']")
+        login_button_xpath = ("//*[@id='fm1']/i[@class='btn btn-block btn-primary btn-submit waves-input-wrapper "
+                              "waves-effect waves-float waves-light']/input[@class='waves-button-input']")
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
         login_button.click()
 
-        # تنظیمات خروجی
-        wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all"))).click()
-        wait.until(EC.element_to_be_clickable((By.ID, "id_period_timeperiod_recentupcoming"))).click()
-        wait.until(EC.element_to_be_clickable((By.ID, "id_export"))).click()
+        wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
 
-        # صبر برای دانلود
-        time.sleep(3)
+        export_all_button = wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
+        export_all_button.click()
 
-        # بررسی وجود فایل .ics
-        ics_file = None
-        for file in os.listdir(user_download_dir):
-            if file.endswith(".ics"):
-                ics_file = os.path.join(user_download_dir, file)
-                break
+        timeperiod_button = wait.until(EC.element_to_be_clickable((By.ID, "id_period_timeperiod_recentupcoming")))
+        timeperiod_button.click()
 
-        if ics_file and os.path.exists(ics_file):
-            print(f"📂 فایل تقویم با موفقیت دانلود شد.")
-            return ics_file
+        export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
+        export_button.click()
+
+        # صبر برای تکمیل دانلود
+        time.sleep(4)
+
+        downloaded_files = [f for f in os.listdir(user_download_dir) if f.endswith(".ics")]
+        if downloaded_files:
+            print("📂 فایل تقویم با موفقیت دانلود شد.")
         else:
-            print("❌ فایل .ics یافت نشد.")
-            return None
+            print("❌ فایل تقویم پیدا نشد یا دانلود نشد.")
+
+        return user_download_dir
 
     except Exception as e:
-        print("❌ خطا در دانلود/ذخیره تقویم:", e)
+        print(f"❌ خطا در دانلود/ذخیره تقویم: {e}")
         return None
 
     finally:
         driver.quit()
-
-# تست تکی
-if __name__ == "__main__":
-    download_calendar("USERNAME", "PASSWORD", 123)
