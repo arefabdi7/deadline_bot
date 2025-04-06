@@ -7,6 +7,12 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def safe_listdir(directory):
     try:
+        # Add debug logging for directory status
+        print(f"🔍 Checking directory contents of: {directory}", flush=True)
+        print(f"📂 Directory exists: {os.path.exists(directory)}", flush=True)
+        if os.path.exists(directory):
+            print(f"📝 Directory permissions: {oct(os.stat(directory).st_mode)[-3:]}", flush=True)
+        
         files = os.listdir(directory)
         if files is None:
             return []
@@ -22,6 +28,7 @@ def download_calendar(username, password, user_id):
     if not os.path.exists(user_download_dir):
         os.makedirs(user_download_dir)
         print(f"📁 ساخت پوشه: {user_download_dir}", flush=True)
+        print(f"📂 Directory created successfully: {os.path.exists(user_download_dir)}", flush=True)
     else:
         print(f"📁 پوشه قبلاً وجود داشت: {user_download_dir}", flush=True)
 
@@ -31,12 +38,19 @@ def download_calendar(username, password, user_id):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-software-rasterizer")
-    options.add_argument(f"--window-size=1920,1080")
+    options.add_argument("--window-size=1920,1080")
+    # Add new security-related options
+    options.add_argument("--disable-extensions")
+    options.add_argument("--allow-running-insecure-content")
+    options.add_argument("--disable-web-security")
+
     prefs = {
         "download.default_directory": user_download_dir,
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
-        "safebrowsing.enabled": True
+        "safebrowsing.enabled": True,
+        "profile.default_content_settings.popups": 0,  # Added to prevent popups
+        "download.default_directory": user_download_dir  # Ensure download path is set
     }
     options.add_experimental_option("prefs", prefs)
 
@@ -48,8 +62,8 @@ def download_calendar(username, password, user_id):
         driver.get("https://courses.aut.ac.ir/calendar/export.php")
 
         login_provider_xpath = ("//*[@id='region-main']/div[@class='login-wrapper']/div[@class='login-container']/"
-                                "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
-                                "div[@class='column-content']/div[@class='login-identityproviders']/a")
+                              "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
+                              "div[@class='column-content']/div[@class='login-identityproviders']/a")
         login_provider_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_provider_xpath)))
         login_provider_button.click()
 
@@ -65,7 +79,6 @@ def download_calendar(username, password, user_id):
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
         login_button.click()
 
-        # به جای بررسی URL، انتظار برای عنصری که فقط پس از ورود موفق ظاهر می‌شود
         try:
             wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
         except Exception:
@@ -82,12 +95,16 @@ def download_calendar(username, password, user_id):
 
         print("⌛ در انتظار دانلود فایل...", flush=True)
 
-        timeout = 15
+        # Increased timeout from 15 to 30 seconds
+        timeout = 30
         downloaded_files = []
         for i in range(timeout):
-            # استفاده از تابع safe_listdir جهت اطمینان از بازگشت یک لیست
+            # Add debug logging before checking files
+            print(f"🔄 Checking download status - Attempt {i + 1}/{timeout}", flush=True)
+            
             all_files = safe_listdir(user_download_dir)
             print(f"⏳ تلاش {i + 1}/{timeout} - فایل‌های موجود: {all_files}", flush=True)
+            
             downloaded_files = [f for f in all_files if f.endswith(".ics")]
             if downloaded_files:
                 break
