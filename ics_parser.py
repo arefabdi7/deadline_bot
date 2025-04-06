@@ -7,7 +7,6 @@ from datetime import datetime
 BASE_DOWNLOAD_DIR = "/tmp"
 
 def extract_course_name(category_field):
-    # گرفتن فقط آخرین بخش بعد از خط تیره
     if category_field and '-' in category_field:
         parts = category_field.split('-')
         name = parts[-1].strip()
@@ -16,6 +15,10 @@ def extract_course_name(category_field):
 
 def save_ics_to_db(user_id):
     ics_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
+    if not os.path.exists(ics_dir):
+        print(f"❌ پوشه {ics_dir} وجود ندارد.")
+        return
+
     files = [f for f in os.listdir(ics_dir) if f.endswith(".ics")]
     if not files:
         print("❌ هیچ فایل ICS برای این کاربر پیدا نشد.")
@@ -38,16 +41,8 @@ def save_ics_to_db(user_id):
                     summary = str(component.get("SUMMARY") or "بدون عنوان")
                     description = str(component.get("DESCRIPTION") or "بدون توضیحات")
                     
-                    # استخراج مقدار واقعی CATEGORIES
                     raw_category_field = component.get("CATEGORIES")
-                    if raw_category_field:
-                        if isinstance(raw_category_field, list):
-                            raw_category = str(raw_category_field[0])
-                        else:
-                            raw_category = str(raw_category_field)
-                    else:
-                        raw_category = ""
-
+                    raw_category = str(raw_category_field[0]) if isinstance(raw_category_field, list) else str(raw_category_field)
                     category = extract_course_name(raw_category)
 
                     dtend = component.get("DTEND")
