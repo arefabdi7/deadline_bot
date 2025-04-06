@@ -151,6 +151,7 @@ async def show_deadlines(message: Message):
     print(f"User {message.chat.id} requested deadlines.", flush=True)
     await check_and_delete_webhook()
     chat_id = message.chat.id
+    db = Database()
     deadlines = db.get_deadlines(chat_id)
 
     if not deadlines:
