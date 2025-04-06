@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 BASE_DOWNLOAD_DIR = "/tmp"
 
 def download_calendar(username, password, user_id):
-    print(f"⬇ شروع دانلود تقویم برای کاربر {user_id} (user_id={user_id})")
+    print(f"⬇ شروع دانلود تقویم برای کاربر {user_id} (user_id={user_id})", flush=True)
 
     user_download_dir = os.path.join(BASE_DOWNLOAD_DIR, str(user_id))
     if not os.path.exists(user_download_dir):
@@ -69,15 +69,18 @@ def download_calendar(username, password, user_id):
         time.sleep(4)
 
         downloaded_files = [f for f in os.listdir(user_download_dir) if f.endswith(".ics")]
-        if downloaded_files:
-            print("📂 فایل تقویم با موفقیت دانلود شد.")
+        
+        # بررسی فایل‌های دانلود شده
+        if not downloaded_files:
+            print("❌ هیچ فایل ICS برای این کاربر پیدا نشد یا دانلود نشد.", flush=True)
+            return None
         else:
-            print("❌ فایل تقویم پیدا نشد یا دانلود نشد.")
+            print(f"📂 فایل‌های موجود برای پردازش: {downloaded_files}", flush=True)
 
         return user_download_dir
 
     except Exception as e:
-        print(f"❌ خطا در دانلود/ذخیره تقویم: {e}")
+        print(f"❌ خطا در دانلود/ذخیره تقویم: {e}", flush=True)
         return None
 
     finally:
