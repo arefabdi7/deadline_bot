@@ -5,7 +5,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 def safe_listdir(directory):
     try:
@@ -80,8 +79,7 @@ def download_calendar(username, password, user_id):
 
     try:
         print("🔧 Initializing Chrome driver...", flush=True)
-        service = Service()
-        driver = uc.Chrome(options=options, service=service)
+        driver = uc.Chrome(options=options)
         wait = WebDriverWait(driver, 15)  # Increased wait time
 
         print("🚀 ورود به سایت...", flush=True)
