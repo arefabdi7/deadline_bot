@@ -66,7 +66,8 @@ def download_calendar(username, password, user_id):
         export_button.click()
 
         # صبر برای تکمیل دانلود (افزایش زمان خواب)
-        time.sleep(20)
+        print("⏳ صبر برای تکمیل دانلود...", flush=True)
+        time.sleep(30)  # افزایش زمان خواب برای تکمیل دانلود
 
         # چاپ محتویات پوشه دانلود
         downloaded_files = os.listdir(user_download_dir)
