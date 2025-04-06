@@ -14,19 +14,15 @@ from contextlib import contextmanager
 class ConnectionError(Exception):
     pass
 
-@contextmanager
-def timeout(seconds):
-    def timeout_handler(signum, frame):
-        raise TimeoutError()
-    
-    # Save the previous handler
-    original_handler = socket.signal(socket.SIGALRM, timeout_handler)
+def safe_get_with_timeout(driver, url, timeout=30):
+    """Alternative timeout implementation using Selenium's page load timeout"""
     try:
-        socket.alarm(seconds)
-        yield
-    finally:
-        socket.alarm(0)
-        socket.signal(socket.SIGALRM, original_handler)
+        driver.set_page_load_timeout(timeout)
+        driver.get(url)
+        return True
+    except Exception as e:
+        print(f"⚠️ Timeout or error while loading page: {str(e)}", flush=True)
+        raise ConnectionError(str(e))
 
 def retry_on_connection_error(func, max_retries=3, delay=5):
     def wrapper(*args, **kwargs):
@@ -36,7 +32,7 @@ def retry_on_connection_error(func, max_retries=3, delay=5):
         while retries < max_retries:
             try:
                 return func(*args, **kwargs)
-            except (ConnectionError, WebDriverException, MaxRetryError, socket.error, TimeoutError) as e:
+            except (ConnectionError, WebDriverException, MaxRetryError, socket.error) as e:
                 last_exception = e
                 retries += 1
                 print(f"🔄 Retry attempt {retries}/{max_retries} after error: {str(e)}", flush=True)
@@ -118,12 +114,10 @@ def download_calendar(username, password, user_id):
     try:
         print("🔧 Initializing Chrome driver...", flush=True)
         driver = uc.Chrome(options=options)
-        driver.set_page_load_timeout(30)  # 30 seconds timeout
         wait = WebDriverWait(driver, 20)  # Increased wait time
 
         print("🚀 ورود به سایت...", flush=True)
-        with timeout(30):  # 30 seconds timeout for initial connection
-            driver.get("https://courses.aut.ac.ir/calendar/export.php")
+        safe_get_with_timeout(driver, "https://courses.aut.ac.ir/calendar/export.php", timeout=30)
         
         print("📄 Verifying page load...", flush=True)
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -195,7 +189,7 @@ def download_calendar(username, password, user_id):
 
     except Exception as e:
         print("🚨 خطا هنگام دانلود:", str(e), flush=True)
-        if isinstance(e, (ConnectionError, WebDriverException, MaxRetryError, socket.error, TimeoutError)):
+        if isinstance(e, (ConnectionError, WebDriverException, MaxRetryError, socket.error)):
             raise ConnectionError(str(e))
         raise e
     finally:
