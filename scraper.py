@@ -73,23 +73,36 @@ def safe_listdir(directory):
         print(f"🚨 خطا هنگام لیست کردن پوشه {directory}: {e}", flush=True)
         return []
 
-def wait_and_find_element(driver, by, value, timeout=20, click=False, send_keys=None):
-    """Helper function to wait for and interact with elements"""
+def wait_and_find_element(driver, by, value, timeout=20, click=False, send_keys=None, check_visibility=False):
+    """Enhanced helper function to wait for and interact with elements"""
     try:
         wait = WebDriverWait(driver, timeout)
-        element = wait.until(EC.presence_of_element_located((by, value)))
+        
+        # First check for presence
+        if check_visibility:
+            element = wait.until(EC.visibility_of_element_located((by, value)))
+        else:
+            element = wait.until(EC.presence_of_element_located((by, value)))
+            
         if element is None:
             print(f"⚠️ Element {value} not found", flush=True)
             return None
             
         # Wait for element to be clickable if we need to interact with it
         if click or send_keys is not None:
-            element = wait.until(EC.element_to_be_clickable((by, value)))
-            
+            try:
+                element = wait.until(EC.element_to_be_clickable((by, value)))
+            except TimeoutException:
+                print(f"⚠️ Element {value} is not clickable", flush=True)
+                # Try to scroll element into view
+                driver.execute_script("arguments[0].scrollIntoView(true);", element)
+                time.sleep(1)
+                
         if click:
             try:
                 element.click()
             except ElementClickInterceptedException:
+                print(f"⚠️ Click intercepted for {value}, trying JavaScript click", flush=True)
                 driver.execute_script("arguments[0].click();", element)
                 
         if send_keys is not None:
@@ -103,6 +116,45 @@ def wait_and_find_element(driver, by, value, timeout=20, click=False, send_keys=
     except Exception as e:
         print(f"⚠️ Error interacting with element {value}: {str(e)}", flush=True)
         return None
+
+def verify_login_success(driver):
+    """Verify login success and handle potential redirects"""
+    try:
+        # First check if we're still on the login page
+        error_messages = driver.find_elements(By.CLASS_NAME, "alert-danger")
+        if error_messages:
+            for msg in error_messages:
+                if msg.is_displayed():
+                    print(f"⚠️ Login error message found: {msg.text}", flush=True)
+                    return False
+
+        # Check for login success indicators
+        success_indicators = [
+            "id_events_exportevents_all",  # Calendar export page
+            "user-menu",  # User menu in header
+            "usermenu",  # Alternative user menu class
+            "usertext"   # Username display
+        ]
+
+        for indicator in success_indicators:
+            element = driver.find_elements(By.ID, indicator) or driver.find_elements(By.CLASS_NAME, indicator)
+            if element and any(e.is_displayed() for e in element):
+                print(f"✅ Login verified with indicator: {indicator}", flush=True)
+                return True
+
+        # If no success indicators found, check current URL
+        current_url = driver.current_url
+        print(f"📍 Current URL after login: {current_url}", flush=True)
+        
+        if "login" in current_url.lower():
+            print("⚠️ Still on login page", flush=True)
+            return False
+            
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Error verifying login: {str(e)}", flush=True)
+        return False
 
 @retry_on_connection_error
 def download_calendar(username, password, user_id):
@@ -156,51 +208,65 @@ def download_calendar(username, password, user_id):
 
         print("🚀 ورود به سایت...", flush=True)
         driver.get("https://courses.aut.ac.ir/calendar/export.php")
-        time.sleep(2)  # Small delay to ensure page loads
+        time.sleep(3)  # Increased initial wait time
         
         print("📄 Verifying page load...", flush=True)
-        if not wait_and_find_element(driver, By.TAG_NAME, "body"):
+        if not wait_and_find_element(driver, By.TAG_NAME, "body", check_visibility=True):
             raise ConnectionError("Failed to load page")
 
         login_provider_xpath = ("//*[@id='region-main']/div[@class='login-wrapper']/div[@class='login-container']/"
                               "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
                               "div[@class='column-content']/div[@class='login-identityproviders']/a")
         print("🔍 Looking for login provider button...", flush=True)
-        if not wait_and_find_element(driver, By.XPATH, login_provider_xpath, click=True):
+        if not wait_and_find_element(driver, By.XPATH, login_provider_xpath, click=True, check_visibility=True):
             raise ConnectionError("Login provider button not found or not clickable")
 
         print("✍️ Entering credentials...", flush=True)
-        if not wait_and_find_element(driver, By.ID, "username", send_keys=username):
+        if not wait_and_find_element(driver, By.ID, "username", send_keys=username, check_visibility=True):
             raise ConnectionError("Username field not found")
 
-        if not wait_and_find_element(driver, By.ID, "password", send_keys=password):
+        if not wait_and_find_element(driver, By.ID, "password", send_keys=password, check_visibility=True):
             raise ConnectionError("Password field not found")
 
-        login_button = wait_and_find_element(driver, By.XPATH, "//*[@id='fm1']//input[@type='submit']", click=True)
+        login_button = wait_and_find_element(driver, By.XPATH, "//*[@id='fm1']//input[@type='submit']", 
+                                           click=True, check_visibility=True)
         if not login_button:
             raise ConnectionError("Login button not found or not clickable")
 
-        # Wait longer after login
+        # Wait longer after login and verify
         time.sleep(5)
-
+        
         print("🔐 Verifying login success...", flush=True)
-        export_all = wait_and_find_element(driver, By.ID, "id_events_exportevents_all")
-        if not export_all:
+        if not verify_login_success(driver):
             raise Exception("❌ نام کاربری یا رمز عبور نادرست است.")
 
-        print("📅 Configuring calendar export...", flush=True)
-        if not wait_and_find_element(driver, By.ID, "id_events_exportevents_all", click=True):
-            raise ConnectionError("Export all button not found or not clickable")
+        # Try to navigate to calendar export page if not already there
+        current_url = driver.current_url
+        target_url = "https://courses.aut.ac.ir/calendar/export.php"
+        if current_url != target_url:
+            print(f"📍 Navigating to calendar export page...", flush=True)
+            driver.get(target_url)
+            time.sleep(3)
 
-        if not wait_and_find_element(driver, By.ID, "id_period_timeperiod_recentupcoming", click=True):
+        print("📅 Configuring calendar export...", flush=True)
+        export_all = wait_and_find_element(driver, By.ID, "id_events_exportevents_all", click=True, check_visibility=True)
+        if not export_all:
+            # Try refreshing the page
+            print("🔄 Refreshing page...", flush=True)
+            driver.refresh()
+            time.sleep(3)
+            export_all = wait_and_find_element(driver, By.ID, "id_events_exportevents_all", click=True, check_visibility=True)
+            if not export_all:
+                raise ConnectionError("Export all button not found or not clickable")
+
+        if not wait_and_find_element(driver, By.ID, "id_period_timeperiod_recentupcoming", click=True, check_visibility=True):
             raise ConnectionError("Time period button not found or not clickable")
 
-        if not wait_and_find_element(driver, By.ID, "id_export", click=True):
+        if not wait_and_find_element(driver, By.ID, "id_export", click=True, check_visibility=True):
             raise ConnectionError("Export button not found or not clickable")
 
         print("⌛ در انتظار دانلود فایل...", flush=True)
 
-        # Wait for download to complete
         timeout_value = 45
         downloaded_files = []
         for i in range(timeout_value):
