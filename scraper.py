@@ -65,12 +65,12 @@ def download_calendar(username, password, user_id):
         export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
         export_button.click()
 
-        # صبر برای تکمیل دانلود
-        time.sleep(4)
+        # صبر برای تکمیل دانلود (افزایش زمان خواب)
+        time.sleep(10)
 
+        # بررسی فایل‌های دانلود شده
         downloaded_files = [f for f in os.listdir(user_download_dir) if f.endswith(".ics")]
         
-        # بررسی فایل‌های دانلود شده
         if not downloaded_files:
             print("❌ هیچ فایل ICS برای این کاربر پیدا نشد یا دانلود نشد.", flush=True)
             return None
