@@ -10,19 +10,24 @@ import urllib3
 from urllib3.exceptions import MaxRetryError
 import socket
 from contextlib import contextmanager
+import signal
 
 class ConnectionError(Exception):
     pass
 
-def safe_get_with_timeout(driver, url, timeout=30):
-    """Alternative timeout implementation using Selenium's page load timeout"""
+@contextmanager
+def timeout(seconds):
+    def timeout_handler(signum, frame):
+        raise TimeoutError()
+    
+    # Use signal module directly instead of socket.signal
+    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
     try:
-        driver.set_page_load_timeout(timeout)
-        driver.get(url)
-        return True
-    except Exception as e:
-        print(f"⚠️ Timeout or error while loading page: {str(e)}", flush=True)
-        raise ConnectionError(str(e))
+        signal.alarm(seconds)
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, original_handler)
 
 def retry_on_connection_error(func, max_retries=3, delay=5):
     def wrapper(*args, **kwargs):
@@ -32,7 +37,7 @@ def retry_on_connection_error(func, max_retries=3, delay=5):
         while retries < max_retries:
             try:
                 return func(*args, **kwargs)
-            except (ConnectionError, WebDriverException, MaxRetryError, socket.error) as e:
+            except (ConnectionError, WebDriverException, MaxRetryError, socket.error, TimeoutError) as e:
                 last_exception = e
                 retries += 1
                 print(f"🔄 Retry attempt {retries}/{max_retries} after error: {str(e)}", flush=True)
@@ -65,6 +70,15 @@ def safe_listdir(directory):
     except Exception as e:
         print(f"🚨 خطا هنگام لیست کردن پوشه {directory}: {e}", flush=True)
         return []
+
+def wait_for_element(driver, by, value, timeout=20):
+    try:
+        wait = WebDriverWait(driver, timeout)
+        element = wait.until(EC.presence_of_element_located((by, value)))
+        return element
+    except Exception as e:
+        print(f"⚠️ Error waiting for element {value}: {str(e)}", flush=True)
+        return None
 
 @retry_on_connection_error
 def download_calendar(username, password, user_id):
@@ -114,49 +128,68 @@ def download_calendar(username, password, user_id):
     try:
         print("🔧 Initializing Chrome driver...", flush=True)
         driver = uc.Chrome(options=options)
-        wait = WebDriverWait(driver, 20)  # Increased wait time
+        driver.set_page_load_timeout(30)
+        wait = WebDriverWait(driver, 20)
 
         print("🚀 ورود به سایت...", flush=True)
-        safe_get_with_timeout(driver, "https://courses.aut.ac.ir/calendar/export.php", timeout=30)
+        driver.get("https://courses.aut.ac.ir/calendar/export.php")
         
         print("📄 Verifying page load...", flush=True)
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        body = wait_for_element(driver, By.TAG_NAME, "body")
+        if not body:
+            raise ConnectionError("Failed to load page")
 
         login_provider_xpath = ("//*[@id='region-main']/div[@class='login-wrapper']/div[@class='login-container']/"
                               "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
                               "div[@class='column-content']/div[@class='login-identityproviders']/a")
         print("🔍 Looking for login provider button...", flush=True)
-        login_provider_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_provider_xpath)))
+        login_provider_button = wait_for_element(driver, By.XPATH, login_provider_xpath)
+        if not login_provider_button:
+            raise ConnectionError("Login provider button not found")
         login_provider_button.click()
 
         print("✍️ Entering credentials...", flush=True)
-        username_field = wait.until(EC.presence_of_element_located((By.ID, "username")))
+        username_field = wait_for_element(driver, By.ID, "username")
+        if not username_field:
+            raise ConnectionError("Username field not found")
         username_field.clear()
         username_field.send_keys(username)
 
-        password_field = wait.until(EC.presence_of_element_located((By.ID, "password")))
+        password_field = wait_for_element(driver, By.ID, "password")
+        if not password_field:
+            raise ConnectionError("Password field not found")
         password_field.clear()
         password_field.send_keys(password)
 
-        login_button_xpath = ("//*[@id='fm1']//input[@type='submit']")
-        login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
+        login_button_xpath = "//*[@id='fm1']//input[@type='submit']"
+        login_button = wait_for_element(driver, By.XPATH, login_button_xpath)
+        if not login_button:
+            raise ConnectionError("Login button not found")
         login_button.click()
 
         try:
             print("🔐 Verifying login success...", flush=True)
-            wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
+            export_all = wait_for_element(driver, By.ID, "id_events_exportevents_all")
+            if not export_all:
+                raise Exception("❌ نام کاربری یا رمز عبور نادرست است.")
         except Exception as e:
             print(f"❌ Login verification failed: {str(e)}", flush=True)
             raise Exception("❌ نام کاربری یا رمز عبور نادرست است.")
         
         print("📅 Configuring calendar export...", flush=True)
-        export_all_button = wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
+        export_all_button = wait_for_element(driver, By.ID, "id_events_exportevents_all")
+        if not export_all_button:
+            raise ConnectionError("Export all button not found")
         export_all_button.click()
 
-        timeperiod_button = wait.until(EC.element_to_be_clickable((By.ID, "id_period_timeperiod_recentupcoming")))
+        timeperiod_button = wait_for_element(driver, By.ID, "id_period_timeperiod_recentupcoming")
+        if not timeperiod_button:
+            raise ConnectionError("Time period button not found")
         timeperiod_button.click()
 
-        export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
+        export_button = wait_for_element(driver, By.ID, "id_export")
+        if not export_button:
+            raise ConnectionError("Export button not found")
         export_button.click()
 
         print("⌛ در انتظار دانلود فایل...", flush=True)
@@ -167,9 +200,10 @@ def download_calendar(username, password, user_id):
             print(f"🔄 Checking download status - Attempt {i + 1}/{timeout_value}", flush=True)
             
             all_files = safe_listdir(user_download_dir)
-            if not isinstance(all_files, list):
-                print("⚠️ Warning: all_files is not a list!", flush=True)
-                all_files = []
+            if not all_files:
+                print("⚠️ No files found in directory", flush=True)
+                time.sleep(1)
+                continue
                 
             print(f"⏳ تلاش {i + 1}/{timeout_value} - فایل‌های موجود: {all_files}", flush=True)
             
@@ -189,7 +223,7 @@ def download_calendar(username, password, user_id):
 
     except Exception as e:
         print("🚨 خطا هنگام دانلود:", str(e), flush=True)
-        if isinstance(e, (ConnectionError, WebDriverException, MaxRetryError, socket.error)):
+        if isinstance(e, (ConnectionError, WebDriverException, MaxRetryError, socket.error, TimeoutError)):
             raise ConnectionError(str(e))
         raise e
     finally:
