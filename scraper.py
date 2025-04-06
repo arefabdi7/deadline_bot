@@ -65,13 +65,16 @@ def download_calendar(username, password, user_id):
         export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
         export_button.click()
 
-        # صبر برای تکمیل دانلود (کاهش زمان خواب به 2 ثانیه)
+        # صبر برای تکمیل دانلود با روش بهتر
         print("⏳ صبر برای تکمیل دانلود...", flush=True)
-        time.sleep(2)  # کاهش زمان خواب
-
-        # چاپ محتویات پوشه دانلود
-        downloaded_files = os.listdir(user_download_dir)
-        print(f"📂 محتویات پوشه دانلود: {downloaded_files}", flush=True)
+        initial_files = set(os.listdir(user_download_dir))  # ذخیره لیست فایل‌ها قبل از دانلود
+        while True:
+            time.sleep(1)
+            downloaded_files = set(os.listdir(user_download_dir))
+            new_files = downloaded_files - initial_files  # مقایسه فایل‌های جدید
+            if new_files:
+                print(f"📂 فایل‌های جدید دانلود شده: {new_files}", flush=True)
+                break  # اگر فایل جدید پیدا شد، حلقه رو متوقف کن
 
         # بررسی فایل‌های ICS
         downloaded_ics_files = [f for f in downloaded_files if f.endswith(".ics")]
