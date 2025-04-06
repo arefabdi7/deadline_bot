@@ -66,16 +66,20 @@ def download_calendar(username, password, user_id):
         export_button.click()
 
         # صبر برای تکمیل دانلود (افزایش زمان خواب)
-        time.sleep(10)
+        time.sleep(20)
 
-        # بررسی فایل‌های دانلود شده
-        downloaded_files = [f for f in os.listdir(user_download_dir) if f.endswith(".ics")]
+        # چاپ محتویات پوشه دانلود
+        downloaded_files = os.listdir(user_download_dir)
+        print(f"📂 محتویات پوشه دانلود: {downloaded_files}", flush=True)
+
+        # بررسی فایل‌های ICS
+        downloaded_ics_files = [f for f in downloaded_files if f.endswith(".ics")]
         
-        if not downloaded_files:
+        if not downloaded_ics_files:
             print("❌ هیچ فایل ICS برای این کاربر پیدا نشد یا دانلود نشد.", flush=True)
             return None
         else:
-            print(f"📂 فایل‌های موجود برای پردازش: {downloaded_files}", flush=True)
+            print(f"📂 فایل‌های موجود برای پردازش: {downloaded_ics_files}", flush=True)
 
         return user_download_dir
 
