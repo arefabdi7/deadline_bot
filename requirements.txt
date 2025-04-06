@@ -1,0 +1,10 @@
+aiogram==3.4.1
+APScheduler==3.10.4
+mysql-connector-python==8.3.0
+selenium==4.18.1
+python-dateutil==2.9.0.post0
+ics==0.7.2
+icalendar
+undetected-chromedriver>=3.5.5
+jdatetime
+pytz
