@@ -8,17 +8,20 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def download_calendar(username, password, user_id):
     # تعیین دایرکتوری دانلود مخصوص هر کاربر
-    base_download_dir = os.path.abspath("/tmp")
+    base_download_dir = os.path.abspath("download")
     user_download_dir = os.path.join(base_download_dir, str(user_id))
-    if not os.path.exists(user_download_dir):
-        os.makedirs(user_download_dir)
-    
+    os.makedirs(user_download_dir, exist_ok=True)
+
     # تنظیم گزینه‌های Chrome
     chrome_options = Options()
-    # برای افزایش سرعت، حالت headless را فعال کنید:
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     
+    # مسیر منحصر به‌فرد برای داده‌های مرورگر
+    chrome_options.add_argument(f"--user-data-dir=/tmp/chrome-user-data-{user_id}")
+
     # تنظیمات دانلود برای Chrome
     prefs = {
         "download.default_directory": user_download_dir,
@@ -27,63 +30,51 @@ def download_calendar(username, password, user_id):
         "safebrowsing.enabled": True
     }
     chrome_options.add_experimental_option("prefs", prefs)
-    
-    # ایجاد instance مرورگر
+
+    # ایجاد مرورگر
     driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 5)
-    
+
     try:
-        # رفتن به آدرس سایت
+        print(f"⬇ شروع دانلود تقویم برای کاربر {user_id} (user_id={user_id})")
         driver.get("https://courses.aut.ac.ir/calendar/export.php")
-        
-        # کلیک روی دکمه ورود از طریق کلیک بر روی لینک ارائه دهنده هویت
+
+        # کلیک روی دکمه ورود با شناسه دانشگاه
         login_provider_xpath = ("//*[@id='region-main']/div[@class='login-wrapper']/div[@class='login-container']/"
-                                  "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
-                                  "div[@class='column-content']/div[@class='login-identityproviders']/a")
+                                "div/div[@class='loginform row hastwocolumns']/div[@class='col-lg-6 col-md-12 right-column']/"
+                                "div[@class='column-content']/div[@class='login-identityproviders']/a")
         login_provider_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_provider_xpath)))
         login_provider_button.click()
-        
-        # پر کردن فیلدهای نام کاربری و رمز عبور
+
+        # پر کردن فیلدهای ورود
         username_field = wait.until(EC.presence_of_element_located((By.ID, "username")))
         username_field.clear()
         username_field.send_keys(username)
-        
+
         password_field = wait.until(EC.presence_of_element_located((By.ID, "password")))
         password_field.clear()
         password_field.send_keys(password)
-        
-        # کلیک روی دکمه ورود
+
         login_button_xpath = ("//*[@id='fm1']/i[@class='btn btn-block btn-primary btn-submit waves-input-wrapper waves-effect "
                               "waves-float waves-light']/input[@class='waves-button-input']")
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
         login_button.click()
-        
-        # استفاده از انتظارهای مناسب به جای sleep برای تکمیل ورود
-        wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
-        
-        # کلیک روی دکمه نمایش همه رویدادها
-        export_all_button = wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
-        export_all_button.click()
-        
-        # کلیک روی دکمه انتخاب بازه زمانی (نمایش رویدادهای اخیر و آینده)
-        timeperiod_button = wait.until(EC.element_to_be_clickable((By.ID, "id_period_timeperiod_recentupcoming")))
-        timeperiod_button.click()
-        
-        # کلیک روی دکمه خروجی (Download)
-        export_button = wait.until(EC.element_to_be_clickable((By.ID, "id_export")))
-        export_button.click()
-        
-        # صبر کوتاهی جهت تکمیل دانلود (در صورت نیاز می‌توانید این زمان را کاهش یا افزایش دهید)
-        time.sleep(3)
-        
-        print("دانلود فایل تکمیل شد. فایل در مسیر زیر ذخیره شده است:")
+
+        # انتخاب گزینه‌ها و دانلود
+        wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all"))).click()
+        wait.until(EC.element_to_be_clickable((By.ID, "id_period_timeperiod_recentupcoming"))).click()
+        wait.until(EC.element_to_be_clickable((By.ID, "id_export"))).click()
+
+        time.sleep(3)  # صبر برای کامل شدن دانلود
+
+        print("✅ دانلود فایل تکمیل شد. فایل در مسیر زیر ذخیره شده است:")
         print(user_download_dir)
-        
+
     except Exception as e:
-        print("خطایی رخ داده است:", e)
+        print("❌ خطا در دانلود/ذخیره تقویم:", e)
     finally:
         driver.quit()
 
-# نمونه فراخوانی تابع (با جایگزینی نام کاربری و رمز عبور واقعی)
+# تست محلی
 if __name__ == '__main__':
-    download_calendar("arefabdi", "Arefabdi1382", 123)
+    download_calendar("USERNAME", "PASSWORD", 123)
