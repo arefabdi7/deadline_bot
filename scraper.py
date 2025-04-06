@@ -5,6 +5,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+def safe_listdir(directory):
+    try:
+        files = os.listdir(directory)
+        if files is None:
+            return []
+        return files
+    except Exception as e:
+        print(f"🚨 خطا هنگام لیست کردن پوشه {directory}: {e}", flush=True)
+        return []
+
 def download_calendar(username, password, user_id):
     base_download_dir = "/tmp"
     user_download_dir = os.path.join(base_download_dir, str(user_id))
@@ -55,7 +65,7 @@ def download_calendar(username, password, user_id):
         login_button = wait.until(EC.element_to_be_clickable((By.XPATH, login_button_xpath)))
         login_button.click()
 
-        # Instead of checking URL, wait for an element that only appears on successful login
+        # به جای بررسی URL، انتظار برای عنصری که فقط پس از ورود موفق ظاهر می‌شود
         try:
             wait.until(EC.element_to_be_clickable((By.ID, "id_events_exportevents_all")))
         except Exception:
@@ -75,8 +85,8 @@ def download_calendar(username, password, user_id):
         timeout = 15
         downloaded_files = []
         for i in range(timeout):
-            # Ensure that even if os.listdir returns None, we use an empty list.
-            all_files = os.listdir(user_download_dir) or []
+            # استفاده از تابع safe_listdir جهت اطمینان از بازگشت یک لیست
+            all_files = safe_listdir(user_download_dir)
             print(f"⏳ تلاش {i + 1}/{timeout} - فایل‌های موجود: {all_files}", flush=True)
             downloaded_files = [f for f in all_files if f.endswith(".ics")]
             if downloaded_files:
